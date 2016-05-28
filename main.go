@@ -70,7 +70,7 @@ func main() {
 
   // bind to all channel events
   //client.BindAll(&chanHandler{})
-  client.BindAllFunc(eventHandler)
+  //client.BindAllFunc(eventHandler)
 
   fmt.Println("Wait for exit.")
   // block until signal

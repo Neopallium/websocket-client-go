@@ -8,6 +8,14 @@ Golang library for connecting to a Pusher App over websockets.
 $ go get github.com/Neopallium/pusher-client-go
 ```
 
+## Quick start
+
+You can quickly try the library by using the included simple client.
+
+```
+$ pusher-client-go -key APP_KEY -channel TEST_CHANNEL -event EVENT_NAME
+```
+
 ## Getting Started
 
 ```go
