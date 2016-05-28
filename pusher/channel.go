@@ -2,7 +2,6 @@ package pusher
 
 import (
 	"sync"
-	"log"
 )
 
 type Handler interface {
@@ -29,7 +28,6 @@ func (c *Channel) handleEvent(event *Event) {
 	// mark channel as subscribed
 	if event.Event == "pusher_internal:subscription_succeeded" {
 		c.subscribed = true
-log.Println("got subscription_succeeded:", event.Channel)
 	}
 	// send event to callbacks bound to this event.
 	for _, h := range c.handlers[event.Event] {
@@ -45,7 +43,6 @@ func (c *Channel) connectedState(connected bool) {
 	c.RLock()
 	defer c.RUnlock()
 	if connected && ! c.subscribed {
-log.Println("send subscribe:", c.channel)
 		c.subscribe()
 	} else {
 		c.subscribed = false
