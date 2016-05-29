@@ -78,5 +78,8 @@ func main() {
   signal.Notify(s, syscall.SIGHUP)
   signal.Notify(s, syscall.SIGINT)
   <- s
+
+  // close client.
+  client.Close()
 }
 

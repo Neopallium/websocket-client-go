@@ -31,6 +31,7 @@ type Client struct {
 	ws                 *websocket.Conn
 	in                 chan *Event
 	out                chan []byte
+	closeClient        chan bool
 	channels           *Channels
 	lastActivity       time.Time
 	connectTimeout     time.Duration
@@ -59,6 +60,11 @@ func (c *Client) reset() {
 		c.ws.Close()
 		c.ws = nil
 	}
+}
+
+// Close client and don't reconnect.
+func (c *Client) Close() {
+	close(c.closeClient)
 }
 
 func (c *Client) sendPing() {
@@ -202,6 +208,8 @@ func connectedState(c *Client) stateFn {
 				return timeoutState
 			}
 			continue
+		case <-c.closeClient:
+			return stopState
 		}
 	}
 	panic("not reached")
@@ -265,6 +273,7 @@ func newClient(u *url.URL, p *Pusher) *Client {
 		activityTimeout: p.ActivityTimeout,
 		pingTimeout: p.PingTimeout,
 		out: make(chan []byte, OUT_CHANNEL_SIZE),
+		closeClient: make(chan bool),
 		timeoutTimer: newTimeoutTimer(NoTimeout, 0),
 	}
 	c.channels = newChannels(c)
