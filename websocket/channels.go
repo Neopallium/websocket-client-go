@@ -1,4 +1,4 @@
-package pusher
+package websocket
 
 import (
 	"sync"
@@ -6,26 +6,27 @@ import (
 
 type Channels struct {
 	sync.RWMutex
+	client    ChannelClient
 	channels  map[string]*Channel
 	global    *Channel
 	connected bool
 }
 
-func (c *Channels) handleEvent(event *Event) {
+func (c *Channels) HandleEvent(event Event) {
 	// send event to global channel
-	c.global.handleEvent(event)
+	c.global.HandleEvent(event)
 	if event.Channel == "" {
 		// global only event.
 		return
 	}
 	// send event to subscribed channel
-	ch := c.find(event.Channel)
+	ch := c.Find(event.Channel)
 	if ch != nil {
-		ch.handleEvent(event)
+		ch.HandleEvent(event)
 	}
 }
 
-func (c *Channels) connectedState(connected bool) {
+func (c *Channels) ConnectedState(connected bool) {
 	c.RLock()
 	defer c.RUnlock()
 	// cache connected state
@@ -36,7 +37,7 @@ func (c *Channels) connectedState(connected bool) {
 	}
 }
 
-func (c *Channels) find(channel string) *Channel {
+func (c *Channels) Find(channel string) *Channel {
 	// empty channel name is for receiving events from all subscribed channels.
 	if channel == "" {
 		return c.global
@@ -47,7 +48,7 @@ func (c *Channels) find(channel string) *Channel {
 	return c.channels[channel]
 }
 
-func (c *Channels) add(channel string, client *Client) *Channel {
+func (c *Channels) Add(channel string) *Channel {
 	// empty channel name is for receiving events from all subscribed channels.
 	if channel == "" {
 		return c.global
@@ -59,7 +60,7 @@ func (c *Channels) add(channel string, client *Client) *Channel {
 	ch := c.channels[channel]
 	if ch == nil {
 		// create a new channel
-		ch = newChannel(channel, client)
+		ch = newChannel(channel, c.client)
 		c.channels[channel] = ch
 	}
 	if c.connected {
@@ -68,7 +69,7 @@ func (c *Channels) add(channel string, client *Client) *Channel {
 	return ch
 }
 
-func (c *Channels) remove(channel string) {
+func (c *Channels) Remove(channel string) {
 	// empty channel name is for receiving events from all subscribed channels.
 	if channel == "" {
 		// can't remove the global channel.
@@ -84,16 +85,17 @@ func (c *Channels) remove(channel string) {
 	delete(c.channels, channel)
 }
 
-func (c *Channels) bind(event string, h Handler) {
+func (c *Channels) Bind(event string, h Handler) {
 	c.global.Bind(event, h)
 }
 
-func (c *Channels) unbind(event string, h Handler) {
+func (c *Channels) Unbind(event string, h Handler) {
 	c.global.Unbind(event, h)
 }
 
-func newChannels(client *Client) *Channels {
+func NewChannels(client ChannelClient) *Channels {
 	return &Channels{
+		client: client,
 		channels: make(map[string]*Channel),
 		global: newChannel("", client),
 	}

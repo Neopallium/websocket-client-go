@@ -1,11 +1,11 @@
-# Pusher Websocket Client Go Library
+# Reconnecting Websocket Client Go Library
 
-Golang library for connecting to a Pusher App over websockets.
+A reconnecting Websocket client.
 
 ## Installing
 
 ```
-$ go get github.com/Neopallium/pusher-client-go
+$ go get github.com/Neopallium/websocket-client-go
 ```
 
 ## Quick start
@@ -13,7 +13,7 @@ $ go get github.com/Neopallium/pusher-client-go
 You can quickly try the library by using the included simple client.
 
 ```
-$ pusher-client-go -key APP_KEY -channel TEST_CHANNEL -event EVENT_NAME
+$ websocket-client-go -url URL -channel TEST_CHANNEL -event EVENT_NAME
 ```
 
 ## Getting Started
@@ -22,7 +22,7 @@ $ pusher-client-go -key APP_KEY -channel TEST_CHANNEL -event EVENT_NAME
 package main
 
 import (
-  "github.com/Neopallium/pusher-client-go/pusher"
+  "github.com/Neopallium/websocket-client-go/websocket"
   "sync"
   "fmt"
 )
@@ -32,20 +32,20 @@ var wg sync.WaitGroup
 // Example Handler object
 type chanHandler struct {}
 
-func (o *chanHandler) HandleEvent(event pusher.Event) {
+func (o *chanHandler) HandleEvent(event websocket.Event) {
   fmt.Println("Handler: Got Event:", event.Channel, event.Event, event.Data)
   wg.Done()
 }
 
 // Example Handler function
-func eventHandler(event pusher.Event) {
+func eventHandler(event websocket.Event) {
   fmt.Println("HandlerFunc: Got Event:", event.Channel, event.Event, event.Data)
   wg.Done()
 }
 
 func main() {
-  // Create pusher client connection for "app_key"
-  client := pusher.NewClient("app_key")
+  // Create websocket client connection for "url"
+  client := websocket.NewClient("wss://localhost:8080/app")
 
   // Subscribe to a channel
   ch := client.Subscribe("test_channel")
@@ -66,8 +66,4 @@ func main() {
 }
 
 ```
-
-## TODO
-
-* Support private & presence channels.  Need auth handler/callback.
 

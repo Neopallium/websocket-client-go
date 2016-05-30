@@ -1,50 +1,139 @@
 package pusher
 
 import (
+	ws "github.com/Neopallium/websocket-client-go/websocket"
+
 	"net/url"
 	"time"
+	"strconv"
+	"log"
 )
 
-type Pusher struct {
+type PusherClient struct {
+	sock               *ws.Socket
+	channels           *ws.Channels
+}
+
+func (p *PusherClient) HandleDisconnect() bool {
+	log.Println("---------- PusherClient Disconnected:")
+	p.channels.ConnectedState(false)
+	return true
+}
+
+func (p *PusherClient) HandleConnected() {
+	log.Println("---------- PusherClient Connected:")
+	p.channels.ConnectedState(true)
+}
+
+func (p *PusherClient) HandleEvent(event ws.Event) ws.ChangeState {
+	log.Println("---------- PusherClient event:", event)
+	p.channels.HandleEvent(event)
+	return ws.NoChangeState
+}
+
+func (c *PusherClient) SendEvent(event string, data interface{}) {
+	log.Println("------------------ PusherClient.SendEvent", event, data)
+	c.sock.SendEvent(event, data)
+}
+
+func (c *PusherClient) Close() {
+	c.sock.Close()
+}
+
+func (p *PusherClient) Subscribe(channel string) *ws.Channel {
+	return p.channels.Add(channel)
+}
+
+func (p *PusherClient) Unsubscribe(channel string) {
+	p.channels.Remove(channel)
+}
+
+func (p *PusherClient) Bind(event string, h ws.Handler) {
+	p.channels.Bind(event, h)
+}
+
+func (p *PusherClient) Unbind(event string, h ws.Handler) {
+	p.channels.Unbind(event, h)
+}
+
+func (p *PusherClient) BindFunc(event string, h func(ws.Event)) {
+	p.Bind(event, ws.HandlerFunc(h))
+}
+
+func (p *PusherClient) UnbindFunc(event string, h func(ws.Event)) {
+	p.Unbind(event, ws.HandlerFunc(h))
+}
+
+func (p *PusherClient) BindAll(h ws.Handler) {
+	p.Bind("", h)
+}
+
+func (p *PusherClient) UnbindAll(h ws.Handler) {
+	p.Unbind("", h)
+}
+
+func (p *PusherClient) BindAllFunc(h func(ws.Event)) {
+	p.Bind("", ws.HandlerFunc(h))
+}
+
+func (p *PusherClient) UnbindAllFunc(h func(ws.Event)) {
+	p.Unbind("", ws.HandlerFunc(h))
+}
+
+func newPusherClient(u *url.URL, cf PusherConfig) *PusherClient {
+	params := u.Query()
+	params.Set("protocol", strconv.Itoa(cf.Protocol))
+	params.Set("version", cf.Version)
+	params.Set("client", cf.Client)
+	u.RawQuery = params.Encode()
+	p := &PusherClient{}
+	p.sock = ws.NewSocket(u, cf.Config, p)
+	p.channels = ws.NewChannels(p)
+	return p
+}
+
+type PusherConfig struct {
+	ws.Config
 	Client            string
 	Version           string
 	Protocol          int
-	ConnectTimeout    time.Duration
-	ActivityTimeout   time.Duration
-	PingTimeout       time.Duration
 }
 
-var DefaultPusher = &Pusher{
-	Client:          "pusher-websocket-go",
-	Version:         "0.5",
-	Protocol:        7,
-	ConnectTimeout:  time.Second * 30,
-	ActivityTimeout: time.Second * 120,
-	PingTimeout:     time.Second * 30,
-}
+var (
+	DefaultPusher = PusherConfig{
+		Config: ws.Config{
+			ConnectTimeout:  time.Second * 30,
+			ActivityTimeout: time.Second * 120,
+			PingTimeout:     time.Second * 30,
+		},
+		Client:          "pusher-websocket-go",
+		Version:         "0.5",
+		Protocol:        7,
+	}
+)
 
-func (p *Pusher) NewClientUrl(pusherUrl string) (*Client, error) {
+func (p PusherConfig) NewPusherUrl(pusherUrl string) (*PusherClient, error) {
 	u, err := url.Parse(pusherUrl)
 	if err != nil {
 		return nil, err
 	}
-	return newClient(u, p), nil
+	return newPusherClient(u, p), nil
 }
 
-func (p *Pusher) NewClient(appKey string) (*Client) {
+func (p PusherConfig) NewPusher(appKey string) (*PusherClient) {
 	u := &url.URL{
 		Scheme: "wss",
 		Host: "ws.pusherapp.com:443",
 		Path: "/app/" + appKey,
 	}
-	return newClient(u, p)
+	return newPusherClient(u, p)
 }
 
-func NewClientUrl(url string) (*Client, error) {
-	return DefaultPusher.NewClientUrl(url)
+func NewPusherUrl(url string) (*PusherClient, error) {
+	return DefaultPusher.NewPusherUrl(url)
 }
 
-func NewClient(appKey string) (*Client) {
-	return DefaultPusher.NewClient(appKey)
+func NewPusher(appKey string) *PusherClient {
+	return DefaultPusher.NewPusher(appKey)
 }
 

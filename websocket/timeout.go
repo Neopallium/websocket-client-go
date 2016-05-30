@@ -1,4 +1,4 @@
-package pusher
+package websocket
 
 import (
 	"time"

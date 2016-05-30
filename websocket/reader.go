@@ -1,4 +1,4 @@
-package pusher
+package websocket
 
 import (
 	"github.com/gorilla/websocket"
@@ -17,6 +17,7 @@ func readEvent(ws *websocket.Conn, event *Event) error {
 	if err := ws.ReadJSON(&aux); err != nil {
 		return err
 	}
+log.Println("Got msg:", aux)
 	// Copy parsed event.
 	event.Event = aux.Event
 	event.Channel = aux.Channel
@@ -36,18 +37,20 @@ func readEvent(ws *websocket.Conn, event *Event) error {
 }
 
 // reader goroutine
-func (c *Client) makeReader() {
-	c.in = make(chan *Event, IN_CHANNEL_SIZE)
-	go func (ws *websocket.Conn, ch chan *Event) {
+func (s *Socket) makeReader() {
+	ws := s.ws
+	in := make(chan *Event, IN_CHANNEL_SIZE)
+	go func () {
 		for {
 			var event Event
 			if err := readEvent(ws, &event); err != nil {
 				// Close channel to signal that the WebSocket connection has closed.
-				close(ch)
+				close(in)
 				return
 			}
-			ch <- &event
+			in <- &event
 		}
-	} (c.ws, c.in)
+	} ()
+	s.in = in
 }
 

@@ -19,7 +19,7 @@ _cgo_export.*
 
 _testmain.go
 
-pusher-client-go
+websocket-client-go
 *.exe
 *.test
 *.prof

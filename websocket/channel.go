@@ -1,4 +1,4 @@
-package pusher
+package websocket
 
 import (
 	"sync"
@@ -17,12 +17,12 @@ func (f HandlerFunc) HandleEvent(e Event) {
 type Channel struct {
 	sync.RWMutex
 	channel    string
-	client     *Client
+	client     ChannelClient
 	handlers   map[string][]Handler
 	subscribed bool
 }
 
-func (c *Channel) handleEvent(event *Event) {
+func (c *Channel) HandleEvent(event Event) {
 	c.RLock()
 	defer c.RUnlock()
 	// mark channel as subscribed
@@ -31,11 +31,11 @@ func (c *Channel) handleEvent(event *Event) {
 	}
 	// send event to callbacks bound to this event.
 	for _, h := range c.handlers[event.Event] {
-		h.HandleEvent(*event)
+		h.HandleEvent(event)
 	}
 	// send to callbacks bound to all handlers.
 	for _, h := range c.handlers[""] {
-		h.HandleEvent(*event)
+		h.HandleEvent(event)
 	}
 }
 
@@ -112,7 +112,7 @@ func (c *Channel) subscribe() {
 	if c.channel == "" {
 		return
 	}
-	c.client.sendEvent("pusher:subscribe", &subData{
+	c.client.SendEvent("pusher:subscribe", &subData{
 		Channel: c.channel,
 	})
 }
@@ -125,12 +125,12 @@ func (c *Channel) unsubscribe() {
 	if c.channel == "" {
 		return
 	}
-	c.client.sendEvent("pusher:unsubscribe", &unsubData{
+	c.client.SendEvent("pusher:unsubscribe", &unsubData{
 		Channel: c.channel,
 	})
 }
 
-func newChannel(channel string, client *Client) *Channel {
+func newChannel(channel string, client ChannelClient) *Channel {
 	c := &Channel{
 		channel: channel,
 		client: client,

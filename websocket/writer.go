@@ -1,4 +1,4 @@
-package pusher
+package websocket
 
 import (
 	"encoding/json"
@@ -6,8 +6,8 @@ import (
 	"log"
 )
 
-func (c *Client) sendMsg(msg string) {
-	c.out <- []byte(msg)
+func (s *Socket) sendMsg(msg string) {
+	s.out <- []byte(msg)
 }
 
 type auxSendEvent struct {
@@ -15,7 +15,7 @@ type auxSendEvent struct {
 	Data  interface{} `json:"data"`
 }
 
-func (c *Client) sendEvent(event string, data interface{}) {
+func (s *Socket) SendEvent(event string, data interface{}) {
 	e := auxSendEvent{
 		Event: event,
 		Data: data,
@@ -24,23 +24,26 @@ func (c *Client) sendEvent(event string, data interface{}) {
 	if err != nil {
 		log.Fatal("Error sending event:", err)
 	}
-	c.out <- buf
+	s.out <- buf
 }
 
-func (c *Client) makeWriter() {
-	go func (ws *websocket.Conn, out chan []byte) {
+func (s *Socket) makeWriter() {
+	ws := s.ws
+	out := s.out
+	go func () {
 		for {
-			msg, ok := <- out
+			msg, ok := <-out
 			if ! ok {
 				// stop writer
 				return
 			}
-			err := ws.WriteMessage(websocket.TextMessage, []byte(msg))
+log.Println("----------- Send:", string(msg))
+			err := ws.WriteMessage(websocket.TextMessage, msg)
 			if err != nil {
 				log.Println("Writer error:", err)
 				return
 			}
 		}
-	} (c.ws, c.out)
+	} ()
 }
 

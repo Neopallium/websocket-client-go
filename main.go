@@ -1,7 +1,8 @@
 package main
 
 import (
-  "github.com/Neopallium/pusher-client-go/pusher"
+  ws "github.com/Neopallium/websocket-client-go/websocket"
+  "github.com/Neopallium/websocket-client-go/pusher"
   "flag"
   "fmt"
   "os"
@@ -18,12 +19,12 @@ func errorUsage(err string) {
 // Example Handler object
 type chanHandler struct {}
 
-func (o *chanHandler) HandleEvent(event pusher.Event) {
+func (o *chanHandler) HandleEvent(event ws.Event) {
   fmt.Println("Handler: Got Event:", event.Channel, event.Event, event.Data)
 }
 
 // Example Handler function
-func eventHandler(event pusher.Event) {
+func eventHandler(event ws.Event) {
   fmt.Println("HandlerFunc: Got Event:", event.Channel, event.Event, event.Data)
 }
 
@@ -40,7 +41,7 @@ func main() {
 
   flag.Parse()
 
-  var client *pusher.Client
+  var client ws.ChannelClient
 
   switch {
   case channel == "":
@@ -49,10 +50,10 @@ func main() {
      errorUsage("Can't set both `url` and `key` flags")
   case key != "":
     fmt.Printf("Connect to Pusher app key: %s\n", key)
-    client = pusher.NewClient(key)
+    client = pusher.NewPusher(key)
   case url != "":
     fmt.Printf("Connect to Pusher url: %s\n", url)
-    c, err := pusher.NewClientUrl(url)
+    c, err := pusher.NewPusherUrl(url)
     if err != nil {
       errorUsage("Bad url: " + url)
     }
