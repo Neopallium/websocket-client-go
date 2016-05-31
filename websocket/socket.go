@@ -13,12 +13,6 @@ const (
 	OUT_CHANNEL_SIZE = 10
 )
 
-type Event struct {
-	Event    string `json:"event,omitempty"`
-	Channel  string `json:"channel,omitempty"`
-	Data     string `json:"data,omitempty"`
-}
-
 type stateFn func(s *Socket) stateFn
 
 const (
@@ -69,7 +63,7 @@ func (s *Socket) sendPing() {
 	// set ping timeout
 	s.setTimeout(PingTimeout, s.pingTimeout)
 	// send ping
-	s.sendMsg(`{"event":"pusher:ping","data":"{}"}`)
+	s.SendMsg([]byte(`{"event":"pusher:ping","data":"{}"}`))
 }
 
 func startState(s *Socket) stateFn {
@@ -160,12 +154,12 @@ func (s *Socket) handleConnectionEstablished(event *Event) stateFn {
 	return connectedState
 }
 
-func (s *Socket) eventState(event *Event) stateFn {
+func (s *Socket) messageState(event *Event) stateFn {
 	next := connectedState
 	// handle Websocket events.
 	switch event.Event {
 	case "pusher:ping":
-		s.sendMsg(`{"event":"pusher:pong","data":"{}"}`)
+		s.SendMsg([]byte(`{"event":"pusher:pong","data":"{}"}`))
 	case "pusher:pong":
 		// change from ping timeout to activity timeout
 		s.setTimeout(ActivityTimeout, s.activityTimeout)
@@ -174,7 +168,7 @@ func (s *Socket) eventState(event *Event) stateFn {
 	case "pusher:connection_established":
 		next = s.handleConnectionEstablished(event)
 	}
-	s.client.HandleEvent(*event)
+	s.client.HandleMessage(event)
 	return next
 }
 
@@ -201,7 +195,7 @@ func connectedState(s *Socket) stateFn {
 				return reconnectState
 			}
 			s.updateActivity()
-			return s.eventState(event)
+			return s.messageState(event)
 		case tick := <-s.timeoutTimer.C:
 			// process timeout timer ticks
 			if s.timeoutTimer.tickExpired(tick) {

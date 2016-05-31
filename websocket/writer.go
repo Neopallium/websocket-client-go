@@ -1,30 +1,22 @@
 package websocket
 
 import (
-	"encoding/json"
 	"github.com/gorilla/websocket"
 	"log"
 )
 
-func (s *Socket) sendMsg(msg string) {
-	s.out <- []byte(msg)
-}
-
-type auxSendEvent struct {
-	Event string `json:"event"`
-	Data  interface{} `json:"data"`
-}
-
-func (s *Socket) SendEvent(event string, data interface{}) {
-	e := auxSendEvent{
-		Event: event,
-		Data: data,
-	}
-	buf, err := json.Marshal(&e)
+func (s *Socket) SendMessage(msg Message) error {
+	buf, err := msg.EncodeMessage()
 	if err != nil {
-		log.Fatal("Error sending event:", err)
+		return err
 	}
+	log.Println("------------------ Sock.SendMessage", string(buf))
 	s.out <- buf
+	return nil
+}
+
+func (s *Socket) SendMsg(msg []byte) {
+	s.out <- msg
 }
 
 func (s *Socket) makeWriter() {

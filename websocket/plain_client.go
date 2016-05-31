@@ -19,14 +19,19 @@ func (c *PlainClient) HandleConnected() {
 	log.Println("------------------ Plain.HandleConnected")
 }
 
-func (c *PlainClient) HandleEvent(event Event) ChangeState {
-	log.Println("------------------ Plain.HandleEvent", event)
+func (c *PlainClient) HandleMessage(msg Message) ChangeState {
+	log.Println("------------------ Plain.HandleMessage", msg)
 	return NoChangeState
 }
 
-func (c *PlainClient) SendEvent(event string, data interface{}) {
-	log.Println("------------------ Plain.SendEvent", event, data)
-	c.sock.SendEvent(event, data)
+func (c *PlainClient) DecodeMessage(buf []byte) (Message, error) {
+	msg := TextMessage(buf)
+	return msg, nil
+}
+
+func (c *PlainClient) SendMessage(msg Message) {
+	log.Println("------------------ Plain.SendMessage", msg)
+	c.sock.SendMessage(msg)
 }
 
 func (c *PlainClient) Close() {
