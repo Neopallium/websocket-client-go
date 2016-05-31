@@ -1,7 +1,6 @@
 package websocket
 
 import (
-	"encoding/json"
 	"github.com/gorilla/websocket"
 	"net/url"
 	"log"
@@ -23,7 +22,7 @@ type Socket struct {
 	client             Client
 	url                string
 	ws                 *websocket.Conn
-	in                 chan *Event
+	in                 chan []byte
 	out                chan []byte
 	closeSocket        chan bool
 	lastActivity       time.Time
@@ -34,12 +33,21 @@ type Socket struct {
 	timeoutTimer       *TimeoutTimer
 }
 
-func (s *Socket) setTimeout(reason TimeoutReason, d time.Duration) {
+func (s *Socket) SetTimeout(reason TimeoutReason, d time.Duration) {
 	s.timeoutTimer.SetTimeout(reason, d)
 }
 
 func (s *Socket) updateActivity() {
 	s.timeoutTimer.Reset()
+}
+
+func (s *Socket) SetActivityTimeout(activityTimeout time.Duration) {
+	// set activity_timeout value
+	if(activityTimeout > 0 && activityTimeout < s.activityTimeout) {
+		s.activityTimeout = activityTimeout
+	}
+	// update activity timeout
+	s.SetTimeout(ActivityTimeout, s.activityTimeout)
 }
 
 func (s *Socket) reset() {
@@ -61,9 +69,14 @@ func (s *Socket) Close() {
 
 func (s *Socket) sendPing() {
 	// set ping timeout
-	s.setTimeout(PingTimeout, s.pingTimeout)
+	s.SetTimeout(PingTimeout, s.pingTimeout)
 	// send ping
-	s.SendMsg([]byte(`{"event":"pusher:ping","data":"{}"}`))
+	s.client.SendPing()
+}
+
+func (s *Socket) HandlePong() {
+	// change from ping timeout to activity timeout
+	s.SetTimeout(ActivityTimeout, s.activityTimeout)
 }
 
 func startState(s *Socket) stateFn {
@@ -77,7 +90,7 @@ func startState(s *Socket) stateFn {
 	// Set connection timeout on dialer
 	dialer := websocket.DefaultDialer
 	dialer.HandshakeTimeout = s.connectTimeout
-	s.setTimeout(ConnectTimeout, s.connectTimeout)
+	s.SetTimeout(ConnectTimeout, s.connectTimeout)
 	ws, _, err := dialer.Dial(s.url, nil)
 	if err != nil {
 		log.Println("Error connecting:", err)
@@ -90,6 +103,7 @@ func startState(s *Socket) stateFn {
 	// Start reader & writer
 	s.makeReader()
 	s.makeWriter()
+	s.client.HandleConnected()
 	return connectedState
 }
 
@@ -106,70 +120,25 @@ func stopState(s *Socket) stateFn {
 	return nil
 }
 
-func (s *Socket) handleError(event *Event) stateFn {
-	var msg struct {
-		Message string
-		Code    int
-	}
-	if err := json.Unmarshal([]byte(event.Data), &msg); err != nil {
-		log.Println("Failed to unmarshal:", event.Event, err)
-	}
-	switch {
-	case 4000 <= msg.Code && msg.Code <= 4099:
-		log.Println("Connect failed websocket error: code:", msg.Code, ", message:", msg.Message)
-		return stopState
-	case 4100 <= msg.Code && msg.Code <= 4199:
-		log.Println("Try again (delayed reconnect): code:", msg.Code, ", message:", msg.Message)
-		s.connectDelay = time.Second
-		return reconnectState
-	case 4200 <= msg.Code && msg.Code <= 4299:
-		log.Println("Reconnect (no delay): code:", msg.Code, ", message:", msg.Message)
-		s.connectDelay = 0
-		return reconnectState
-	default:
-		log.Println("Websocket error: code:", msg.Code, ", message:", msg.Message)
-	}
-	return connectedState
-}
-
-func (s *Socket) handleConnectionEstablished(event *Event) stateFn {
-	// process Connected information.
-	var msg struct {
-		SocketId         string `json:"socket_id"`
-		ActivityTimeout  int `json:"activity_timeout"`
-	}
-	if err := json.Unmarshal([]byte(event.Data), &msg); err != nil {
-		log.Println("Failed to unmarshal:", event.Event, err)
-	}
-	// check activity_timeout value
-	activityTimeout := time.Duration(msg.ActivityTimeout) * time.Second
-	if(activityTimeout > 0 && activityTimeout < s.activityTimeout) {
-		s.activityTimeout = activityTimeout
-	}
-	// set activity timeout
-	s.setTimeout(ActivityTimeout, s.activityTimeout)
-	// reset connect delay
+func (s *Socket) HandleConnected() {
 	s.connectDelay = 0
-	s.client.HandleConnected()
-	return connectedState
 }
 
-func (s *Socket) messageState(event *Event) stateFn {
-	next := connectedState
-	// handle Websocket events.
-	switch event.Event {
-	case "pusher:ping":
-		s.SendMsg([]byte(`{"event":"pusher:pong","data":"{}"}`))
-	case "pusher:pong":
-		// change from ping timeout to activity timeout
-		s.setTimeout(ActivityTimeout, s.activityTimeout)
-	case "pusher:error":
-		next = s.handleError(event)
-	case "pusher:connection_established":
-		next = s.handleConnectionEstablished(event)
+func (s *Socket) errorState(err error) stateFn {
+	log.Println("Websocket error:", err)
+	switch err := err.(type) {
+	case DelayError:
+		if err.Temporary() {
+			delay := err.Delay()
+			if delay > 0 {
+				s.connectDelay += delay
+			} else {
+				s.connectDelay = 0
+			}
+			return reconnectState
+		}
 	}
-	s.client.HandleMessage(event)
-	return next
+	return stopState
 }
 
 func timeoutState(s *Socket) stateFn {
@@ -195,7 +164,9 @@ func connectedState(s *Socket) stateFn {
 				return reconnectState
 			}
 			s.updateActivity()
-			return s.messageState(event)
+			if err := s.client.HandleMessage(event); err != nil {
+				return s.errorState(err)
+			}
 		case tick := <-s.timeoutTimer.C:
 			// process timeout timer ticks
 			if s.timeoutTimer.tickExpired(tick) {

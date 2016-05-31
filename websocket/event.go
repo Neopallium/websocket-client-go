@@ -5,6 +5,8 @@ import (
 	"log"
 )
 
+// TODO: Use interface for Event.
+
 type Event struct {
 	Event    string `json:"event,omitempty"`
 	Channel  string `json:"channel,omitempty"`

@@ -23,29 +23,82 @@ func (p *PusherClient) HandleDisconnect() bool {
 
 func (p *PusherClient) HandleConnected() {
 	log.Println("---------- PusherClient Connected:")
-	p.channels.ConnectedState(true)
 }
 
-func (p *PusherClient) DecodeMessage(buf []byte) (ws.Message, error) {
+func (p *PusherClient) handleError(event *ws.Event) error {
+	var msg struct {
+		Message string
+		Code    int
+	}
+	var err error
+	err = json.Unmarshal([]byte(event.Data), &msg)
+	if err != nil {
+		log.Println("Failed to unmarshal:", event.Event, err)
+	}
+	switch {
+	case 4000 <= msg.Code && msg.Code <= 4099:
+		log.Println("Connect failed websocket error: code:", msg.Code, ", message:", msg.Message)
+		return ws.ErrClosed
+	case 4100 <= msg.Code && msg.Code <= 4199:
+		log.Println("Try again (delayed reconnect): code:", msg.Code, ", message:", msg.Message)
+		return ws.ErrDelayReconnect
+	case 4200 <= msg.Code && msg.Code <= 4299:
+		log.Println("Reconnect (no delay): code:", msg.Code, ", message:", msg.Message)
+		return ws.ErrReconnect
+	default:
+		log.Println("Pusher error: code:", msg.Code, ", message:", msg.Message)
+	}
+	return nil
+}
+
+func (p *PusherClient) handleConnectionEstablished(event *ws.Event) error {
+	// process Connected information.
+	var msg struct {
+		SocketId         string `json:"socket_id"`
+		ActivityTimeout  int `json:"activity_timeout"`
+	}
+	if err := json.Unmarshal([]byte(event.Data), &msg); err != nil {
+		log.Println("Failed to unmarshal:", event.Event, err)
+	}
+	// update activity_timeout value
+	p.sock.SetActivityTimeout(time.Duration(msg.ActivityTimeout) * time.Second)
+	// subscribe to channels.
+	p.channels.ConnectedState(true)
+	return nil
+}
+
+func (p *PusherClient) HandleMessage(msg []byte) error {
+	var err error
 	var event ws.Event
 
-	err := event.DecodeMessage(buf)
+	err = event.DecodeMessage(msg)
 	if err != nil {
-		return nil, err
+		return err
 	}
-	return &event, nil
-}
-
-func (p *PusherClient) HandleMessage(msg ws.Message) ws.ChangeState {
-	event := msg.(*ws.Event)
 	log.Println("---------- PusherClient event:", event)
-	p.channels.HandleEvent(*event)
-	return ws.NoChangeState
+	// handle Websocket events.
+	switch event.Event {
+	case "pusher:ping":
+		p.sock.SendMessage([]byte(`{"event":"pusher:pong","data":"{}"}`))
+	case "pusher:pong":
+		p.sock.HandlePong()
+	case "pusher:error":
+		err = p.handleError(&event)
+	case "pusher:connection_established":
+		err = p.handleConnectionEstablished(&event)
+	}
+	p.channels.HandleEvent(event)
+	return err
 }
 
-func (p *PusherClient) SendMessage(msg ws.Message) {
-	log.Println("-------------- PusherClient.SendMessage", msg)
+func (p *PusherClient) SendMessage(msg []byte) {
+	log.Println("-------------- PusherClient.SendMessage", string(msg))
 	p.sock.SendMessage(msg)
+}
+
+func (p *PusherClient) SendPing() {
+	// send ping
+	p.sock.SendMessage([]byte(`{"event":"pusher:ping","data":"{}"}`))
 }
 
 type auxSendEvent struct {
@@ -63,7 +116,29 @@ func (p *PusherClient) SendEvent(event string, data interface{}) {
 	if err != nil {
 		log.Fatal("Error sending event:", err)
 	}
-	p.sock.SendMsg(buf)
+	p.sock.SendMessage(buf)
+}
+
+type subData struct {
+	Channel     string `json:"channel"`
+	Auth        string `json:"auth,omitempty"`
+	ChannelData string `json:"channel_data,omitempty"`
+}
+
+func (p *PusherClient) SendSubscribe(channel string) {
+	p.SendEvent("pusher:subscribe", &subData{
+		Channel: channel,
+	})
+}
+
+type unsubData struct {
+	Channel     string `json:"channel"`
+}
+
+func (p *PusherClient) SendUnsubscribe(channel string) {
+	p.SendEvent("pusher:unsubscribe", &unsubData{
+		Channel: channel,
+	})
 }
 
 func (p *PusherClient) Close() {

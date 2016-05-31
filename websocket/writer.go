@@ -5,17 +5,7 @@ import (
 	"log"
 )
 
-func (s *Socket) SendMessage(msg Message) error {
-	buf, err := msg.EncodeMessage()
-	if err != nil {
-		return err
-	}
-	log.Println("------------------ Sock.SendMessage", string(buf))
-	s.out <- buf
-	return nil
-}
-
-func (s *Socket) SendMsg(msg []byte) {
+func (s *Socket) SendMessage(msg []byte) {
 	s.out <- msg
 }
 

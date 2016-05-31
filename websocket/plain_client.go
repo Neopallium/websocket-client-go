@@ -19,19 +19,19 @@ func (c *PlainClient) HandleConnected() {
 	log.Println("------------------ Plain.HandleConnected")
 }
 
-func (c *PlainClient) HandleMessage(msg Message) ChangeState {
-	log.Println("------------------ Plain.HandleMessage", msg)
-	return NoChangeState
+func (c *PlainClient) HandleMessage(msg []byte) error {
+	log.Println("------------------ Plain.HandleMessage", string(msg))
+	return nil
 }
 
-func (c *PlainClient) DecodeMessage(buf []byte) (Message, error) {
-	msg := TextMessage(buf)
-	return msg, nil
-}
-
-func (c *PlainClient) SendMessage(msg Message) {
-	log.Println("------------------ Plain.SendMessage", msg)
+func (c *PlainClient) SendMessage(msg []byte) {
+	log.Println("------------------ Plain.SendMessage", string(msg))
 	c.sock.SendMessage(msg)
+}
+
+func (c *PlainClient) SendPing() {
+	log.Println("------------------ Plain.SendPing")
+	c.sock.SendMessage([]byte("PING"))
 }
 
 func (c *PlainClient) Close() {

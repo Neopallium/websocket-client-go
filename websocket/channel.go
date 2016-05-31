@@ -112,22 +112,14 @@ func (c *Channel) subscribe() {
 	if c.channel == "" {
 		return
 	}
-	c.client.SendEvent("pusher:subscribe", &subData{
-		Channel: c.channel,
-	})
-}
-
-type unsubData struct {
-	Channel     string `json:"channel"`
+	c.client.SendSubscribe(c.channel)
 }
 
 func (c *Channel) unsubscribe() {
 	if c.channel == "" {
 		return
 	}
-	c.client.SendEvent("pusher:unsubscribe", &unsubData{
-		Channel: c.channel,
-	})
+	c.client.SendUnsubscribe(c.channel)
 }
 
 func newChannel(channel string, client ChannelClient) *Channel {

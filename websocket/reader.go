@@ -1,13 +1,9 @@
 package websocket
 
-import (
-	"log"
-)
-
 // reader goroutine
 func (s *Socket) makeReader() {
 	ws := s.ws
-	in := make(chan *Event, IN_CHANNEL_SIZE)
+	in := make(chan []byte, IN_CHANNEL_SIZE)
 	go func () {
 		for {
 			_, buf, err := ws.ReadMessage()
@@ -16,13 +12,7 @@ func (s *Socket) makeReader() {
 				close(in)
 				return
 			}
-			var event Event
-			err = event.DecodeMessage(buf)
-			if err != nil {
-				log.Println("Failed to decode message:", err)
-				continue
-			}
-			in <- &event
+			in <-buf
 		}
 	} ()
 	s.in = in
