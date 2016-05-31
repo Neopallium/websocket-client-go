@@ -3,6 +3,7 @@ package pusher
 import (
 	ws "github.com/Neopallium/websocket-client-go/websocket"
 
+	"encoding/json"
 	"net/url"
 	"time"
 	"strconv"
@@ -25,19 +26,48 @@ func (p *PusherClient) HandleConnected() {
 	p.channels.ConnectedState(true)
 }
 
-func (p *PusherClient) HandleEvent(event ws.Event) ws.ChangeState {
+func (p *PusherClient) DecodeMessage(buf []byte) (ws.Message, error) {
+	var event ws.Event
+
+	err := event.DecodeMessage(buf)
+	if err != nil {
+		return nil, err
+	}
+	return &event, nil
+}
+
+func (p *PusherClient) HandleMessage(msg ws.Message) ws.ChangeState {
+	event := msg.(*ws.Event)
 	log.Println("---------- PusherClient event:", event)
-	p.channels.HandleEvent(event)
+	p.channels.HandleEvent(*event)
 	return ws.NoChangeState
 }
 
-func (c *PusherClient) SendEvent(event string, data interface{}) {
-	log.Println("------------------ PusherClient.SendEvent", event, data)
-	c.sock.SendEvent(event, data)
+func (p *PusherClient) SendMessage(msg ws.Message) {
+	log.Println("-------------- PusherClient.SendMessage", msg)
+	p.sock.SendMessage(msg)
 }
 
-func (c *PusherClient) Close() {
-	c.sock.Close()
+type auxSendEvent struct {
+	Event string `json:"event"`
+	Data  interface{} `json:"data"`
+}
+
+func (p *PusherClient) SendEvent(event string, data interface{}) {
+	log.Println("------------------ PusherClient.SendEvent", event, data)
+	e := auxSendEvent{
+		Event: event,
+		Data: data,
+	}
+	buf, err := json.Marshal(&e)
+	if err != nil {
+		log.Fatal("Error sending event:", err)
+	}
+	p.sock.SendMsg(buf)
+}
+
+func (p *PusherClient) Close() {
+	p.sock.Close()
 }
 
 func (p *PusherClient) Subscribe(channel string) *ws.Channel {
