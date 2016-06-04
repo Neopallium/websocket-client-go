@@ -102,12 +102,6 @@ func (c *Channel) UnbindAllFunc(h func(Event)) {
 	c.Unbind("", HandlerFunc(h))
 }
 
-type subData struct {
-	Channel     string `json:"channel"`
-	Auth        string `json:"auth,omitempty"`
-	ChannelData string `json:"channel_data,omitempty"`
-}
-
 func (c *Channel) subscribe() {
 	if c.channel == "" {
 		return
