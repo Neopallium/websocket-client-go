@@ -22,7 +22,7 @@ type ChannelClient interface {
 	SendSubscribe(channel string)
 	SendUnsubscribe(channel string)
 
-	Subscribe(channel string) *Channel
+	Subscribe(channel string) Channel
 	Unsubscribe(channel string)
 }
 

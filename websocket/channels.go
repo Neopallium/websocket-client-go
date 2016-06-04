@@ -7,14 +7,16 @@ import (
 type Channels struct {
 	sync.RWMutex
 	client    ChannelClient
-	channels  map[string]*Channel
-	global    *Channel
+	channels  map[string]Channel
+	global    Channel
 	connected bool
 }
 
 func (c *Channels) HandleEvent(event Event) {
 	// send event to global channel
-	c.global.HandleEvent(event)
+	if c.global != nil {
+		c.global.HandleEvent(event)
+	}
 	if event.Channel == "" {
 		// global only event.
 		return
@@ -33,11 +35,20 @@ func (c *Channels) ConnectedState(connected bool) {
 	c.connected = connected
 	// notify all channels of the connection state
 	for _, ch := range c.channels {
-		ch.connectedState(connected)
+		ch.UpdateClientState(connected)
 	}
 }
 
-func (c *Channels) Find(channel string) *Channel {
+func (c *Channels) SubscriptionSucceded(channel string, succeded bool) {
+	c.RLock()
+	defer c.RUnlock()
+	ch := c.Find(channel)
+	if ch != nil {
+		ch.SetActive(true)
+	}
+}
+
+func (c *Channels) Find(channel string) Channel {
 	// empty channel name is for receiving events from all subscribed channels.
 	if channel == "" {
 		return c.global
@@ -48,39 +59,32 @@ func (c *Channels) Find(channel string) *Channel {
 	return c.channels[channel]
 }
 
-func (c *Channels) Add(channel string) *Channel {
+func (c *Channels) Add(channel string, ch Channel) {
 	// empty channel name is for receiving events from all subscribed channels.
 	if channel == "" {
-		return c.global
+		c.global = ch
+		return
 	}
 	// mutex is for the 'channels' map
 	c.Lock()
 	defer c.Unlock()
-	// check if the channel exists.
-	ch := c.channels[channel]
-	if ch == nil {
-		// create a new channel
-		ch = newChannel(channel, c.client)
-		c.channels[channel] = ch
-	}
+	c.channels[channel] = ch
 	if c.connected {
-		ch.subscribe()
+		ch.Subscribe()
 	}
-	return ch
 }
 
 func (c *Channels) Remove(channel string) {
 	// empty channel name is for receiving events from all subscribed channels.
 	if channel == "" {
-		// can't remove the global channel.
-		return
+		c.global = nil
 	}
 	// mutex is for the 'channels' map
 	c.Lock()
 	defer c.Unlock()
 	ch := c.channels[channel]
 	if ch != nil && c.connected {
-		ch.unsubscribe()
+		ch.Unsubscribe()
 	}
 	delete(c.channels, channel)
 }
@@ -96,8 +100,7 @@ func (c *Channels) Unbind(event string, h Handler) {
 func NewChannels(client ChannelClient) *Channels {
 	return &Channels{
 		client: client,
-		channels: make(map[string]*Channel),
-		global: newChannel("", client),
+		channels: make(map[string]Channel),
 	}
 }
 

@@ -145,8 +145,14 @@ func (p *PusherClient) Close() {
 	p.sock.Close()
 }
 
-func (p *PusherClient) Subscribe(channel string) *ws.Channel {
-	return p.channels.Add(channel)
+func (p *PusherClient) Subscribe(channel string) ws.Channel {
+	ch := p.channels.Find(channel)
+	if ch == nil {
+		// create a new channel.
+		ch = NewPublicChannel(channel, p)
+		p.channels.Add(channel, ch)
+	}
+	return ch
 }
 
 func (p *PusherClient) Unsubscribe(channel string) {
