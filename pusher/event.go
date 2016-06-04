@@ -36,6 +36,7 @@ func (e *Event) SetData(data interface{}) {
 }
 
 func (e *Event) GetDataString() string {
+	// Normalize Data as a string value.
 	switch e.Data.(type) {
 	case string:
 		return e.Data.(string)

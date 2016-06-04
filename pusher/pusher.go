@@ -31,22 +31,12 @@ func (p *PusherClient) handleError(event *Event) error {
 		Code    int64
 	}
 
-	data := event.GetData()
-	switch data.(type) {
-	case string:
-		var err error
-		err = json.Unmarshal([]byte(data.(string)), &msg)
-		if err != nil {
-			log.Println("Failed to unmarshal:", event.Event, err)
-		}
-	default:
-		dataMap := data.(map[string]string)
-		msg.Message = dataMap["Message"]
-		code, err := strconv.ParseInt(dataMap["Code"], 10, 32)
-		if err != nil {
-			log.Println("Bad 'Code' in error message.")
-		}
-		msg.Code = code
+	data := event.GetDataString()
+	var err error
+	err = json.Unmarshal([]byte(data), &msg)
+	if err != nil {
+		log.Println("Failed to unmarshal error event:", event.Event, err)
+		return err
 	}
 	switch {
 	case 4000 <= msg.Code && msg.Code <= 4099:
