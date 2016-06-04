@@ -12,7 +12,7 @@ func (c *PublicChannel) HandleEvent(event ws.Event) {
 	c.RLock()
 	defer c.RUnlock()
 	// mark channel as subscribed
-	if event.Event == "pusher_internal:subscription_succeeded" {
+	if event.GetEvent() == "pusher_internal:subscription_succeeded" {
 		c.SetActive(true)
 	}
 	c.PublicChannel.HandleEvent(event)

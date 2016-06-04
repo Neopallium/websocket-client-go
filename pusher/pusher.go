@@ -25,15 +25,28 @@ func (p *PusherClient) HandleConnected() {
 	log.Println("---------- PusherClient Connected:")
 }
 
-func (p *PusherClient) handleError(event *ws.Event) error {
+func (p *PusherClient) handleError(event *Event) error {
 	var msg struct {
 		Message string
-		Code    int
+		Code    int64
 	}
-	var err error
-	err = json.Unmarshal([]byte(event.Data), &msg)
-	if err != nil {
-		log.Println("Failed to unmarshal:", event.Event, err)
+
+	data := event.GetData()
+	switch data.(type) {
+	case string:
+		var err error
+		err = json.Unmarshal([]byte(data.(string)), &msg)
+		if err != nil {
+			log.Println("Failed to unmarshal:", event.Event, err)
+		}
+	default:
+		dataMap := data.(map[string]string)
+		msg.Message = dataMap["Message"]
+		code, err := strconv.ParseInt(dataMap["Code"], 10, 32)
+		if err != nil {
+			log.Println("Bad 'Code' in error message.")
+		}
+		msg.Code = code
 	}
 	switch {
 	case 4000 <= msg.Code && msg.Code <= 4099:
@@ -51,13 +64,13 @@ func (p *PusherClient) handleError(event *ws.Event) error {
 	return nil
 }
 
-func (p *PusherClient) handleConnectionEstablished(event *ws.Event) error {
+func (p *PusherClient) handleConnectionEstablished(event *Event) error {
 	// process Connected information.
 	var msg struct {
 		SocketId         string `json:"socket_id"`
 		ActivityTimeout  int `json:"activity_timeout"`
 	}
-	if err := json.Unmarshal([]byte(event.Data), &msg); err != nil {
+	if err := json.Unmarshal([]byte(event.GetDataString()), &msg); err != nil {
 		log.Println("Failed to unmarshal:", event.Event, err)
 	}
 	// update activity_timeout value
@@ -69,10 +82,10 @@ func (p *PusherClient) handleConnectionEstablished(event *ws.Event) error {
 
 func (p *PusherClient) HandleMessage(msg []byte) error {
 	var err error
-	var event ws.Event
+	var event Event
 
-	err = event.DecodeMessage(msg)
-	if err != nil {
+	// parse into aux struct.
+	if err := json.Unmarshal(msg, &event); err != nil {
 		return err
 	}
 	log.Println("---------- PusherClient event:", event)
@@ -87,7 +100,7 @@ func (p *PusherClient) HandleMessage(msg []byte) error {
 	case "pusher:connection_established":
 		err = p.handleConnectionEstablished(&event)
 	}
-	p.channels.HandleEvent(event)
+	p.channels.HandleEvent(&event)
 	return err
 }
 
@@ -101,14 +114,9 @@ func (p *PusherClient) SendPing() {
 	p.sock.SendMessage([]byte(`{"event":"pusher:ping","data":"{}"}`))
 }
 
-type auxSendEvent struct {
-	Event string `json:"event"`
-	Data  interface{} `json:"data"`
-}
-
 func (p *PusherClient) SendEvent(event string, data interface{}) {
 	log.Println("------------------ PusherClient.SendEvent", event, data)
-	e := auxSendEvent{
+	e := Event{
 		Event: event,
 		Data: data,
 	}

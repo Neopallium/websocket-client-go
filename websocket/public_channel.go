@@ -16,7 +16,7 @@ func (c *PublicChannel) HandleEvent(event Event) {
 	c.RLock()
 	defer c.RUnlock()
 	// send event to callbacks bound to this event.
-	for _, h := range c.handlers[event.Event] {
+	for _, h := range c.handlers[event.GetEvent()] {
 		h.HandleEvent(event)
 	}
 	// send to callbacks bound to all handlers.

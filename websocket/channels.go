@@ -17,12 +17,13 @@ func (c *Channels) HandleEvent(event Event) {
 	if c.global != nil {
 		c.global.HandleEvent(event)
 	}
-	if event.Channel == "" {
+	channelName := event.GetChannel()
+	if channelName == "" {
 		// global only event.
 		return
 	}
 	// send event to subscribed channel
-	ch := c.Find(event.Channel)
+	ch := c.Find(channelName)
 	if ch != nil {
 		ch.HandleEvent(event)
 	}

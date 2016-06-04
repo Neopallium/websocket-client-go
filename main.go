@@ -20,12 +20,12 @@ func errorUsage(err string) {
 type chanHandler struct {}
 
 func (o *chanHandler) HandleEvent(event ws.Event) {
-  fmt.Println("Handler: Got Event:", event.Channel, event.Event, event.Data)
+  fmt.Println("Handler: Got Event:", event.GetChannel(), event.GetEvent(), event.GetData())
 }
 
 // Example Handler function
 func eventHandler(event ws.Event) {
-  fmt.Println("HandlerFunc: Got Event:", event.Channel, event.Event, event.Data)
+  fmt.Println("HandlerFunc: Got Event:", event.GetChannel(), event.GetEvent(), event.GetData())
 }
 
 func main() {
