@@ -3,7 +3,6 @@ package websocket
 import (
 	"net/url"
 	"time"
-	"log"
 )
 
 type PlainClient struct {
@@ -11,26 +10,21 @@ type PlainClient struct {
 }
 
 func (c *PlainClient) HandleDisconnect() bool {
-	log.Println("------------------ Plain.HandleDisconnect")
 	return true
 }
 
 func (c *PlainClient) HandleConnected() {
-	log.Println("------------------ Plain.HandleConnected")
 }
 
 func (c *PlainClient) HandleMessage(msg []byte) error {
-	log.Println("------------------ Plain.HandleMessage", string(msg))
 	return nil
 }
 
 func (c *PlainClient) SendMessage(msg []byte) {
-	log.Println("------------------ Plain.SendMessage", string(msg))
 	c.sock.SendMessage(msg)
 }
 
 func (c *PlainClient) SendPing() {
-	log.Println("------------------ Plain.SendPing")
 	c.sock.SendMessage([]byte("PING"))
 }
 

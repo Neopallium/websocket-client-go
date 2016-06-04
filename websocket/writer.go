@@ -19,7 +19,6 @@ func (s *Socket) makeWriter() {
 				// stop writer
 				return
 			}
-log.Println("----------- Send:", string(msg))
 			err := ws.WriteMessage(websocket.TextMessage, msg)
 			if err != nil {
 				log.Println("Writer error:", err)

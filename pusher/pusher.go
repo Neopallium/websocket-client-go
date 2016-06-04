@@ -16,13 +16,11 @@ type PusherClient struct {
 }
 
 func (p *PusherClient) HandleDisconnect() bool {
-	log.Println("---------- PusherClient Disconnected:")
 	p.channels.ConnectedState(false)
 	return true
 }
 
 func (p *PusherClient) HandleConnected() {
-	log.Println("---------- PusherClient Connected:")
 }
 
 func (p *PusherClient) handleError(event *Event) error {
@@ -78,7 +76,6 @@ func (p *PusherClient) HandleMessage(msg []byte) error {
 	if err := json.Unmarshal(msg, &event); err != nil {
 		return err
 	}
-	log.Println("---------- PusherClient event:", event)
 	// handle Websocket events.
 	switch event.Event {
 	case "pusher:ping":
@@ -95,7 +92,6 @@ func (p *PusherClient) HandleMessage(msg []byte) error {
 }
 
 func (p *PusherClient) SendMessage(msg []byte) {
-	log.Println("-------------- PusherClient.SendMessage", string(msg))
 	p.sock.SendMessage(msg)
 }
 
@@ -105,7 +101,6 @@ func (p *PusherClient) SendPing() {
 }
 
 func (p *PusherClient) SendEvent(event string, data interface{}) {
-	log.Println("------------------ PusherClient.SendEvent", event, data)
 	e := Event{
 		Event: event,
 		Data: data,
