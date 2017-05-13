@@ -17,7 +17,7 @@ type Client interface {
 type ChannelClient interface {
 	Client
 
-	SendEvent(event string, data interface{})
+	SendEvent(event Event)
 
 	SendSubscribe(channel string)
 	SendUnsubscribe(channel string)

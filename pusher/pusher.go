@@ -100,11 +100,7 @@ func (p *PusherClient) SendPing() {
 	p.sock.SendMessage([]byte(`{"event":"pusher:ping","data":"{}"}`))
 }
 
-func (p *PusherClient) SendEvent(event string, data interface{}) {
-	e := Event{
-		Event: event,
-		Data: data,
-	}
+func (p *PusherClient) SendEvent(e ws.Event) {
 	buf, err := json.Marshal(&e)
 	if err != nil {
 		log.Fatal("Error sending event:", err)
@@ -119,8 +115,11 @@ type subData struct {
 }
 
 func (p *PusherClient) SendSubscribe(channel string) {
-	p.SendEvent("pusher:subscribe", &subData{
-		Channel: channel,
+	p.SendEvent(&Event{
+		Event: "pusher:subscribe",
+		Data: subData{
+			Channel: channel,
+		},
 	})
 }
 
@@ -129,8 +128,11 @@ type unsubData struct {
 }
 
 func (p *PusherClient) SendUnsubscribe(channel string) {
-	p.SendEvent("pusher:unsubscribe", &unsubData{
-		Channel: channel,
+	p.SendEvent(&Event{
+		Event: "pusher:unsubscribe",
+		Data: unsubData{
+			Channel: channel,
+		},
 	})
 }
 
